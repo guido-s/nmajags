@@ -1,0 +1,8 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+*~
+*.bak
+.DS_Store
+roxygen2-*.R

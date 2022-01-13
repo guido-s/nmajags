@@ -1,0 +1,163 @@
+model.nmr.cont.smd <- function(ns, na, nt, u, tau, ref, pow,
+                               pooled.sd, equals, y,
+                               addvar) {
+  
+  for (i in 1:ns) {
+    ##
+    w[i, 1] <- 0
+    delta[i, t[i, 1]] <- 0
+    ##
+    ## Normal likelihood for network meta-regression with one
+    ## covariate
+    ##
+    for (k in 1:na[i]) {
+      y[i, t[i, k]] ~ dnorm(phi[i, t[i, k]], prec[i, t[i, k]])
+      phi[i, t[i, k]] <- (delta.nmr[i, t[i, k]] + u[i]) * pooled.sd[i]
+      ##
+      delta.nmr[i, t[i, k]] <-
+        delta[i, t[i, k]] +
+        beta[t[i, 1], t[i, k]] * addvar[i]
+    }
+    ##
+    ## Model
+    ##
+    for (k in 2:na[i]) {
+      ##
+      ## Distribution of random effects (SMD)
+      ##
+      delta[i, t[i, k]] ~ dnorm(smd[i, t[i, k]], precd[i, t[i, k]])
+      ##
+      ## Accounting for correlation between effect sizes estimated in
+      ## multi-arm trials
+      ##
+      smd[i, t[i, k]] <- mean[i, k] + sw[i, k]
+      w[i, k] <- delta[i, t[i, k]] - mean[i, k]
+      sw[i, k] <- sum(w[i, 1:(k - 1)]) / (k - 1)
+      precd[i, t[i, k]] <- PREC * 2 * (k - 1) / k
+      ##
+      ## Consistency equations
+      ##
+      mean[i, k] <- d[t[i, k]] - d[t[i, 1]]
+    }
+  }
+  
+  
+  ##
+  ## Prior distribution in baseline arm of study i
+  ##
+  for (i in 1:ns) {
+    u[i] ~ dnorm(0, 0.0001)
+  }
+  ##
+  ## Prior distribution for heterogeneity
+  ##
+  tau ~ dunif(0, 5)
+  tau.sq <- pow(tau, 2)
+  PREC <- 1 / tau.sq
+  ##
+  ## Prior distribution for basic parameters
+  ##
+  d[ref] <- 0
+  for (k in 1:(ref - 1)) {
+    d[k] ~ dnorm(0, 0.0001)
+  }
+  for (k in (ref + 1):nt) {
+    d[k] ~ dnorm(0, 0.0001)
+  }
+  ##
+  ## Prior distribution for regression coefficients
+  ##
+  b[ref] <- 0
+  for (k in 1:(ref - 1)) {
+    b[k] ~ dnorm(0, 0.0001)
+  }
+  ##
+  for (k in (ref + 1):nt) {
+    b[k] ~ dnorm(0, 0.0001)
+  }
+  
+  
+  ##
+  ## SMDs for comparisons
+  ##
+  for (i in 1:(nt - 1)) {
+    for (j in (i + 1):nt) {
+      SMD[j, i] <- d[j] - d[i]
+    }
+  }
+  ##
+  ## SMD matrix for all pairwise comparisons
+  ##
+  for (i in 1:nt) {
+    for (j in 1:nt) {
+      SMD.full[i, j] <- d[i] - d[j]
+    }
+  }
+  ##
+  ## Comparisons with reference
+  ##
+  for (i in 1:nt) {
+    SMDref[i] <- d[i] - d[ref]
+  }
+  ##
+  ## Regression coefficients
+  ##
+  for(i in 1:nt) {
+    for (j in 1:nt) {
+      beta[i, j] <- b[j] - b[i]
+    }
+  }
+  
+  
+  ##
+  ## Predictions
+  ##
+  for (i in 1:(nt - 1)) {
+    for (j in (i + 1):nt) {
+      predSMD[j, i] ~ dnorm(SMD[j, i], PREC)
+    }
+  }
+  ##
+  for (i in 1:nt) {
+    for (j in 1:nt) {
+      predSMD.full[i, j] ~ dnorm(SMD.full[i, j], PREC)
+    }
+  }
+  ##
+  for (i in 1:(ref - 1)) {
+    x[i] <- d[i] - d[ref]
+    predSMD.ref[i] ~ dnorm(x[i], PREC)
+  }
+  for (i in (ref + 1):nt) {
+    x[i] <- d[i] - d[ref]
+    predSMD.ref[i] ~ dnorm(x[i], PREC)
+  }
+  
+  
+  ##
+  ## Treatment hierarchy
+  ##
+  order[1:nt] <- rank(d[1:nt])
+  ##
+  ## This is when the outcome is positive - omit 'nt + 1 -' when the
+  ## outcome is negative
+  ##
+  for (i in 1:nt) {
+    most.effective[i] <- equals(order[i], 1)
+    for (j in 1:nt) {
+      effectiveness[i, j] <- equals(order[i], j)
+    }
+  }
+  ##
+  for (i in 1:nt) {
+    for (j in 1:nt) {
+      cumeffectiveness[i, j] <- sum(effectiveness[i, 1:j])
+    }
+  }
+  ##
+  ## SUCRAS
+  ##
+  for (i in 1:nt) {
+    SUCRA[i] <- sum(cumeffectiveness[i, 1:(nt - 1)]) / (nt - 1)
+  }
+}

@@ -1,0 +1,14 @@
+Package: nmajags
+Type: Package
+Title: R functions to run Bayesian network meta-analysis with JAGS
+Version: 0.1-0
+Imports: R2jags, meta
+Suggests: netmeta
+Date: 2022-01-13
+Author: Georgia Salanti, Guido Schwarzer
+Maintainer: Guido Schwarzer <sc@imbi.uni-freiburg.de>
+Description: More about what it does (maybe more than one line)
+    Use four spaces when indenting paragraphs within the Description.
+License: GPL (>= 2)
+Encoding: UTF-8
+RoxygenNote: 7.1.2

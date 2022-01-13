@@ -1,0 +1,93 @@
+model.nma.bin.or <- function(ns, na, nt, u, tau, ref, pow) {
+  
+  for (i in 1:ns) {
+    ##
+    w[i, 1] <- 0
+    theta[i, t[i, 1]] <- 0
+    ##
+    ## Binomial likelihood of number of events for each arm k of study
+    ## i
+    ##
+    for (k in 1:na[i]) {
+      r[i, t[i, k]] ~ dbin(p[i, t[i, k]], n[i, t[i, k]])
+    }
+    ##
+    ## Parameterization of the 'true' effect of each comparison of arm
+    ## k vs. baseline arm (t = 1) of study i
+    ##
+    logit(p[i, t[i, 1]]) <- u[i]
+    ##
+    ## Model
+    ##
+    for (k in 2:na[i]) {
+      logit(p[i, t[i, k]]) <- theta[i, t[i, k]] + u[i]
+      ##
+      ## Distribution of random effects
+      ##
+      theta[i, t[i, k]] ~ dnorm(lnOR[i, t[i, k]], precd[i, t[i, k]])
+      ##
+      ## Accounting for correlation between effect sizes estimated in
+      ## multi-arm trials
+      ##
+      lnOR[i, t[i, k]] <- mean[i, k] + sw[i, k]
+      w[i, k] <- theta[i, t[i, k]] - mean[i, k]
+      sw[i, k] <- sum(w[i, 1:(k - 1)]) / (k - 1)
+      precd[i, t[i, k]] <- prec * 2 * (k - 1) / k
+      ##
+      ## Consistency equations
+      ##
+      mean[i, k] <- d[t[i, k]] - d[t[i, 1]]
+    }
+  }
+  
+  
+  ##
+  ## Prior distribution for log-odds in baseline arm of study i
+  ##
+  for (i in 1:ns) {
+    u[i] ~ dnorm(0, 0.01)
+  }
+  ##
+  ## Prior distribution for heterogeneity
+  ##
+  tau ~ dnorm(0, 1) %_% T(0, )                                      
+  tau.sq <- pow(tau, 2)
+  prec <- 1 / tau.sq
+  ##
+  ## Prior distribution for basic parameters
+  ##
+  d[ref] <- 0
+  for (k in 1:(ref - 1)) {
+    d[k] ~ dnorm(0, 0.01)
+  }
+  for (k in (ref + 1):nt) {
+    d[k] ~ dnorm(0, 0.01)
+  }
+  
+  
+  ##
+  ## OR for each comparison 
+  ##
+  for (i in 1:(nt - 1)) {
+    for (j in (i + 1):nt) {
+      OR[j, i] <- exp(d[j] - d[i])
+      LOR[j, i] <- d[j] - d[i]}
+  }
+  ##
+  ## Full matrix with pairwise comparisons
+  ##
+  for (i in 1:nt) {
+    for (j in 1:nt) {
+      lnOR.full[i, j] <- d[i] - d[j]
+    }
+  }
+  ##
+  ## Comparisons with reference
+  ##
+  for (i in 1:(ref - 1)) {
+    ORref[i] <- exp(d[i] - d[ref])
+  }
+  for (i in (ref + 1):nt) {
+    ORref[i] <- exp(d[i] - d[ref])
+  }
+}
