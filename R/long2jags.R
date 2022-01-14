@@ -6,8 +6,10 @@
 #' rows for a pairwise comparison, to a list format for Bayesian
 #' network meta-analysis using JAGS.
 #' 
-#' @param studlab A vector with study labels (mandatory).
-#' @param treat A vector with treatment labels (mandatory).
+#' @param studlab A vector with study labels or an object created with
+#'   \code{\link[meta]{longarm}}.
+#' @param treat A vector with treatment labels (mandatory if
+#'   \code{studlab} is a vector).
 #' @param event Number of events.
 #' @param n Number of observations.
 #' @param mean Estimated mean.
@@ -15,23 +17,22 @@
 #' @param data An optional data frame containing the study
 #'   information.
 #' @param reference.group Reference treatment.
-#' @param addvar Additional covariable to use in network
-#'   meta-regression.
+#' @param covar Covariable to use in network meta-regression.
 #' @param func A character string specifying function to summarize
-#'   data for additional covariate. Either, "min", "max" or "mean",
-#'   can be abbreviated.
-#' @param quiet A logical indicating whether information on changes in
-#'   treatment labels should be printed.
+#'   data for additional covariate. Either, "min", "max", "mean", or
+#'   ""; can be abbreviated.
 #' 
 #' @details
 #' This function transforms data from long arm-based format, i.e., two
 #' rows for a pairwise comparison, to a list format for Bayesian
 #' network meta-analysis using JAGS.
 #' 
-#' The function can be used to transform data with a binary or
-#' continuous outcome. Arguments \code{studlab} and \code{treat} are
-#' mandatory to identify studies and treatments and, depending on the
-#' outcome, the following additional arguments are mandatory:
+#' At the moment, the function can be used to transform data with a
+#' binary or continuous outcome. The following arguments are mandatory
+#' if argument \code{studlab} is not an R object created with
+#' \code{\link[meta]{longarm}}. Arguments \code{studlab} and
+#' \code{treat} must be provided to identify studies and treatments
+#' and, depending on the outcome, the following additional arguments:
 #' 
 #' \itemize{
 #' \item \code{event}, \code{n} (binary outcome);
@@ -39,12 +40,13 @@
 #' }
 #' 
 #' @return
-#' A list of class \code{jagsdata} readable in JAGS.
+#' A list of class \code{jagsdata}.
 #' 
 #' @author Georgia Salanti \email{georgia.salanti@@ispm.unibe.ch},
 #'   Guido Schwarzer \email{sc@@imbi.uni-freiburg.de}
 #' 
-#' @seealso \code{\link{netjags}}, \code{\link[netmeta]{netmeta}}
+#' @seealso \code{\link{netjags}}, \code{\link[meta]{longarm}},
+#'   \code{\link[netmeta]{netmeta}}
 #' 
 #' @keywords datagen
 #' 
@@ -64,37 +66,31 @@
 #' # Standard Bayesian random effects NMA model
 #' #
 #' library(R2jags)
-#' #
+#' 
 #' # Transform long-arm based data into a list suitable for JAGS
-#' # analysis, with first treatment (here: Apixaban) as reference
-#' # treatment, i.e., t = 1
+#' # analysis, with placebo as reference treatment
 #' #
-#' dat.jags <- long2jags(id, trt,
+#' dat.jags <- long2jags(study, trt,
 #'                       event = stroke, n = total,
 #'                       data = Dogliotti2014, 
-#'                       reference = n1.iv$trts[1])
-#' dat.jags
-#' #
-#' # Run JAGS and create JAGS object (run 10.000 iterations and
-#' # 1.000 burn-in) monitor the nodes LOR and tau
+#'                       reference = "pl")
+#' 
+#' # Run JAGS and create JAGS object
 #' #
 #' n1.jags <- netjags(dat.jags)
-#' #
-#' # Print results
-#' #
-#' print(n1.jags, digits = 2)
 #' 
-#' # Extract lnOR from Bayesian NMA
+#' # Extract lnOR from BUGS output
 #' #
+#' trts <- attr(n1.jags, "trts")
 #' TE.random <- n1.jags$BUGSoutput$mean$LOR.full
-#' rownames(TE.random) <- rownames(n1.iv$TE.random)
-#' colnames(TE.random) <- colnames(n1.iv$TE.random)
+#' rownames(TE.random) <- trts
+#' colnames(TE.random) <- trts
 #' 
-#' # Extract se(lnOR) from Bayesian NMA
+#' # Extract se(lnOR) from BUGS output
 #' #
 #' seTE.random <- n1.jags$BUGSoutput$sd$LOR.full
-#' rownames(seTE.random) <- rownames(n1.iv$seTE.random)
-#' colnames(seTE.random) <- colnames(n1.iv$seTE.random)
+#' rownames(seTE.random) <- trts
+#' colnames(seTE.random) <- trts
 #' 
 #' # Conduct frequentist NMA with tau from Bayesian NMA
 #' #
@@ -104,7 +100,7 @@
 #' 
 #' # Print treatment matrix for frequentist NMA
 #' #
-#' round(n1.iv$TE.random, 3)
+#' round(n1.iv$TE.random, 3)[trts, trts]
 #' 
 #' # Print treatment matrix for Bayesian NMA
 #' #
@@ -113,11 +109,11 @@
 #' # Print treatment matrix for frequentist NMA
 #' # (using tau from Bayesian NMA)
 #' #
-#' round(n1.iv.jags$TE.random, 3)
+#' round(n1.iv.jags$TE.random, 3)[trts, trts]
 #' 
 #' # Print standard errors from frequentist NMA
 #' #
-#' round(n1.iv$seTE.random, 3)
+#' round(n1.iv$seTE.random, 3)[trts, trts]
 #' 
 #' # Print standard errors from Bayesian NMA
 #' #
@@ -126,7 +122,7 @@
 #' # Print standard errors from frequentist NMA
 #' # (using tau from Bayesian NMA)
 #' #
-#' round(n1.iv.jags$seTE.random, 3)
+#' round(n1.iv.jags$seTE.random, 3)[trts, trts]
 #' 
 #' # Print square root of between-study heterogeneity tau2
 #' #
@@ -140,8 +136,7 @@
 long2jags <- function(studlab, treat,
                       event, n, mean, sd,
                       data = NULL, reference.group = 1,
-                      addvar, func = "max",
-                      quiet = FALSE) {
+                      covar, func = "max") {
   
   
   ##
@@ -155,29 +150,56 @@ long2jags <- function(studlab, treat,
   mf <- match.call()
   ##
   if (missing(studlab))
-    stop("Argument 'studlab' mandatory.")
-  if (missing(treat))
-    stop("Argument 'treat' mandatory.")
+    stop("Mandatory argument 'studlab' missing.")
+  else
+    studlab <- eval(mf[[match("studlab", names(mf))]],
+                    data, enclos = sys.frame(sys.parent()))
   ##
-  studlab <- eval(mf[[match("studlab", names(mf))]],
+  ## R object created with longarm()
+  ##
+  if (is.data.frame(studlab) & !is.null(attr(studlab, "longarm"))) {
+    type <- attr(studlab, "type")
+    ##
+    treat <- studlab$treat
+    n <- studlab$n
+    ##
+    if (type == "binary") {
+      event <- studlab$events
+      mean <- NULL
+      sd <- NULL
+    }
+    else if (type == "continuous") {
+      event <- NULL
+      mean <- studlab$mean
+      sd <- studlab$sd
+    }
+    else
+      stop("Function cannot be used with count or generic outcome.")
+    ##
+    studlab <- studlab$studlab
+  }
+  else {
+    if (missing(treat))
+      stop("Argument 'treat' mandatory.")
+    else
+      treat <- eval(mf[[match("treat", names(mf))]],
+                    data, enclos = sys.frame(sys.parent()))
+    ##
+    ## Catch event, n, mean, sd, covar from data:
+    ##
+    event <- eval(mf[[match("event", names(mf))]],
                   data, enclos = sys.frame(sys.parent()))
-  treat <- eval(mf[[match("treat", names(mf))]],
-            data, enclos = sys.frame(sys.parent()))
-  ##
-  ##
-  ## Catch event, n, mean, sd, addvar from data:
-  ##
-  event <- eval(mf[[match("event", names(mf))]],
-                data, enclos = sys.frame(sys.parent()))
-  n <- eval(mf[[match("n", names(mf))]],
-            data, enclos = sys.frame(sys.parent()))
-  mean <- eval(mf[[match("mean", names(mf))]],
+    n <- eval(mf[[match("n", names(mf))]],
+              data, enclos = sys.frame(sys.parent()))
+    mean <- eval(mf[[match("mean", names(mf))]],
+                 data, enclos = sys.frame(sys.parent()))
+    sd <- eval(mf[[match("sd", names(mf))]],
                data, enclos = sys.frame(sys.parent()))
-  sd <- eval(mf[[match("sd", names(mf))]],
-            data, enclos = sys.frame(sys.parent()))
-  missing.addvar <- missing(addvar)
-  if (!missing.addvar)
-    addvar <- eval(mf[[match("addvar", names(mf))]],
+  }
+  ##
+  missing.covar <- missing(covar)
+  if (!missing.covar)
+    covar <- eval(mf[[match("covar", names(mf))]],
                    data, enclos = sys.frame(sys.parent()))
   ##
   if (!is.null(event))
@@ -202,8 +224,6 @@ long2jags <- function(studlab, treat,
          "information:\n  ",
          "- event, n (binary outcome)\n  ",
          "- n, mean, sd (continuous outcome).")
-  ##
-  chklogical(quiet)
   
   
   ##
@@ -211,23 +231,24 @@ long2jags <- function(studlab, treat,
   ## (2) Check length of variables
   ##
   ##
-  k.all <- length(studlab)
-  chklength(treat, k.all, name = "studlab")
+  Nobs <- length(studlab)
+  ##
+  chklength(treat, Nobs, name = "studlab")
   ##
   if (!is.null(event))
-    chklength(event, k.all, name = "studlab")
+    chklength(event, Nobs, name = "studlab")
   ##
   if (!is.null(n))
-    chklength(n, k.all, name = "studlab")
+    chklength(n, Nobs, name = "studlab")
   ##
   if (!is.null(mean))
-    chklength(mean, k.all, name = "studlab")
+    chklength(mean, Nobs, name = "studlab")
   ##
   if (!is.null(sd))
-    chklength(sd, k.all, name = "studlab")
+    chklength(sd, Nobs, name = "studlab")
   ##
-  if (!missing.addvar)
-    chklength(addvar, k.all, name = "studlab")
+  if (!missing.covar)
+    chklength(covar, Nobs, name = "studlab")
   ##
   chklength(reference.group, 1)
   
@@ -238,13 +259,17 @@ long2jags <- function(studlab, treat,
   ##
   ##
   if (nulldata) {
-    data <-
-      data.frame(.studlab = studlab,
-                 .treat = treat,
-                 .event = event, .n = n,
-                 .mean = mean, .sd = sd)
-    if (!missing.addvar)
-      data$.addvar <- addvar
+    data <- data.frame(.studlab = studlab, .treat = treat, .n = n)
+    ##
+    if (type == "binary")
+      data$.event <- event
+    else if (type == "continuous") {
+      data$.mean <- mean
+      data$.sd <- sd
+    }
+    ##
+    if (!missing.covar)
+      data$.covar <- covar
   }
   else {
     data$.studlab <- studlab
@@ -253,8 +278,8 @@ long2jags <- function(studlab, treat,
     data$.n <- n
     data$.mean <- mean
     data$.sd <- sd
-    if (!missing.addvar)
-      data$.addvar <- addvar
+    if (!missing.covar)
+      data$.covar <- covar
   }
   
   
@@ -263,53 +288,33 @@ long2jags <- function(studlab, treat,
   ## (4) Prepare data for JAGS list
   ##
   ##
-  s.id <- as.numeric(as.factor(studlab))
-  t.id <- as.numeric(as.factor(treat))
+  trts <- sort(unique(treat))
+  id.trts <- seq_along(trts)
   ##
-  ns <- length(unique(s.id))
-  nt <- length(unique(treat))
+  reference.group <- setref(reference.group, trts)
+  if (trts[1] != reference.group)
+    trts <- c(reference.group, trts[!(trts == reference.group)])
   ##
-  na <- table(s.id)
-  s.id <- rep(1:ns, table(s.id))
-  ##  
-  if (!identical(t.id, treat)) {
-    cat("Note: the treatments have been renamed as follows:\n")
-    out <- cbind.data.frame(`old names` = sort(unique(treat)),
-                            `new names` = sort(unique(t.id)))
-    reference.group <-
-      sort(unique(t.id))[sort(unique(treat)) == reference.group]
-    ##
-    if (!quiet) {
-      out <- as.matrix(out)
-      rownames(out) <- rep("", nrow(out))
-      prmatrix(out, quote = FALSE, right = TRUE)
-    }
+  id.studlab <- as.numeric(as.factor(studlab))
+  id.treat <- as.numeric(factor(treat, trts, id.trts))
+  ##
+  o <- order(id.studlab, id.treat)
+  ##
+  id.studlab <- id.studlab[o]
+  id.treat <- id.treat[o]
+  ##
+  studlab <- studlab[o]
+  treat <- treat[o]
+  n <- n[o]
+  ##
+  if (type == "continuous") {
+    mean <- mean[o]
+    sd <- sd[o]
   }
-  ##  
-  maxnrofarms <- max(table(s.id))
-  n.arms <- length(s.id)
-  armsenumerate <- unlist(sapply(na, seq))
+  else if (type == "binary")
+    event <- event[o]
   ##
-  tmat <- matrix(666.666, nrow = ns, ncol = maxnrofarms)
-  for (i in 1:n.arms)
-    tmat[s.id[i], armsenumerate[i]] <- t.id[i]
-  ##
-  tmat <- t(apply(tmat, 1, sort))
-  tmat[tmat == 666.666] <- NA
-  ##
-  nmat <- matrix(-99, nrow = ns, ncol = nt)
-  for (i in 1:n.arms) {
-    nmat[s.id[i], t.id[i]] <- n[i]
-  }
-  nmat[nmat == -99] <- NA
-  ##
-  if (!missing(addvar)) {
-    vmat <- matrix(NA, nrow = ns, ncol = nt)
-    for (i in 1:n.arms) {
-      vmat[s.id[i], t.id[i]] <- addvar[i]
-    }
-    vmat[is.na(vmat)] <- NA
-  }
+  studs <- unique(studlab)
   
   
   ##
@@ -328,48 +333,63 @@ long2jags <- function(studlab, treat,
       apply(x, 1, mean, na.rm = TRUE)
     else
       stop("Admissible values for argument 'func': ",
-           "\"max\", \"min\", \"mean\".")
+           "\"max\", \"min\", \"mean\" or \"\".")
   }
+  ##
+  asMat <- function(x, id1, id2, rownames, colnames) {
+    res <- matrix(NA, nrow = length(rownames), ncol = length(colnames))
+    ##
+    for (i in seq_along(x)) {
+      res[id1[i], id2[i]] <- x[i]
+    }
+    ##
+    rownames(res) <- if (is.numeric(rownames))
+                       as.character(rownames)
+                     else
+                       rownames
+    colnames(res) <- if (is.numeric(colnames))
+                       as.character(colnames)
+                     else
+                       colnames
+    ##
+    res
+  }
+  ##
+  n.k <- table(id.studlab)
+  T <- asMat(id.treat,
+             id.studlab, unlist(sapply(n.k, seq)),
+             studs, seq_len(max(table(id.studlab))))
+  T[is.na(T)] <- 666
+  T <- t(apply(T, 1, sort))
+  T[T == 666] <- NA
+  ##
+  res <- list(k = length(studs), n = length(trts), n.k = n.k, T = T)
   ##
   if (type == "continuous") {
-    ymat <- pmat <- matrix(-666, nrow = ns, ncol = nt)
+    res[["Y"]] <- asMat(mean, id.studlab, id.treat, studs, trts)
     ##
-    prec <- 1 / (sd / sqrt(n))^2
+    res[["Pr"]] <-
+      asMat(1 / (sd / sqrt(n))^2, id.studlab, id.treat, studs, trts)
     ##
-    for (i in 1:n.arms) {
-      ymat[s.id[i], t.id[i]] <- mean[i]
-      pmat[s.id[i], t.id[i]] <- prec[i]
-    }
-    ##
-    ymat[ymat == -666] <- NA
-    pmat[pmat == -666] <- NA
-    ##
-    ## Calculate pooled SD for SMD
-    ##
-    nominator <- sqrt(tapply(n * sd^2, s.id, sum))
-    denominator <- sqrt(tapply(n, s.id, sum) - na)
-    pooled.sd <- nominator / denominator
-    ##
-    res <- list(ns = ns, nt = nt, na = na, t = tmat,
-                y = ymat, pooled.sd = pooled.sd,
-                prec = pmat, ref = reference.group)
+    res[["pooled.sd"]] <-
+      sqrt(tapply(n * sd^2, id.studlab, sum)) /
+      sqrt(tapply(n, id.studlab, sum) - n.k)
   }
   else if (type == "binary") {
-    emat <- matrix(-666, nrow = ns, ncol = nt)
+    res[["E"]] <- asMat(event, id.studlab, id.treat, studs, trts)
     ##
-    for (i in 1:n.arms) {
-      emat[s.id[i], t.id[i]] <- event[i]
-    }
-    emat[emat == -666] <- NA
-    ##
-    res <- list(ns = ns, nt = nt, na = na, t = tmat,
-                r = emat, n = nmat, ref = reference.group)
+    res[["N"]] <- asMat(n, id.studlab, id.treat, studs, trts)
   }
-  
-  
-  if (!missing(addvar))
-    res[["addvar"]] <- extract(vmat, func)
   ##
+  if (!missing(covar)) {
+    res[["func"]] <- func
+    res[["Covar"]] <- asMat(covar, id.studlab, id.treat, studs, trts)
+    ##
+    if (func != "")
+      res[["Covar"]] <- extract(res[["Covar"]], func)
+  }
+  ##
+  res[["trts"]] <- trts
   res[["data"]] <- data
   ##  
   class(res) <- "jagsdata"

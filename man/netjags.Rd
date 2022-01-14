@@ -18,7 +18,8 @@ netjags(
 )
 }
 \arguments{
-\item{x}{An object of class \code{jagsdata}.}
+\item{x}{An object created with \code{\link{long2jags}} or
+\code{\link[netmeta]{pairwise}}.}
 
 \item{inits}{...}
 
@@ -46,10 +47,10 @@ a wrapper function for the R function \code{\link[R2jags]{jags}} in
 the R package \bold{R2jags} (Su & Yajima 2021).
 }
 \details{
-Network meta-analysis for objects of class \code{jagsdata} which
-can be created with \code{\link{long2jags}}. This is a wrapper
-function for the R function \code{\link[R2jags]{jags}} in the R
-package \bold{R2jags} (Su & Yajima 2021).
+Network meta-analysis for objects created with
+\code{\link{long2jags}} or \code{\link[netmeta]{pairwise}}. This is
+a wrapper function for the R function \code{\link[R2jags]{jags}} in
+the R package \bold{R2jags} (Su & Yajima 2021).
 }
 \examples{
 \dontrun{
@@ -67,37 +68,31 @@ n1.iv <- netmeta(p1)
 # Standard Bayesian random effects NMA model
 #
 library(R2jags)
-#
+
 # Transform long-arm based data into a list suitable for JAGS
-# analysis, with first treatment (here: Apixaban) as reference
-# treatment, i.e., t = 1
+# analysis, with placebo as reference treatment
 #
-dat.jags <- long2jags(id, trt,
+dat.jags <- long2jags(study, trt,
                       event = stroke, n = total,
                       data = Dogliotti2014, 
-                      reference = n1.iv$trts[1])
-dat.jags
-#
-# Run JAGS and create JAGS object (run 10.000 iterations and 1.000
-# burn-in)
+                      reference = "pl")
+
+# Run JAGS and create JAGS object
 #
 n1.jags <- netjags(dat.jags)
-#
-# Print results
-#
-print(n1.jags, digits = 2)
 
-# Extract lnOR from Bayesian NMA
+# Extract lnOR from BUGS output
 #
+trts <- attr(n1.jags, "trts")
 TE.random <- n1.jags$BUGSoutput$mean$LOR.full
-rownames(TE.random) <- rownames(n1.iv$TE.random)
-colnames(TE.random) <- colnames(n1.iv$TE.random)
+rownames(TE.random) <- trts
+colnames(TE.random) <- trts
 
-# Extract se(lnOR) from Bayesian NMA
+# Extract se(lnOR) from BUGS output
 #
 seTE.random <- n1.jags$BUGSoutput$sd$LOR.full
-rownames(seTE.random) <- rownames(n1.iv$seTE.random)
-colnames(seTE.random) <- colnames(n1.iv$seTE.random)
+rownames(seTE.random) <- trts
+colnames(seTE.random) <- trts
 
 # Conduct frequentist NMA with tau from Bayesian NMA
 #
@@ -107,7 +102,7 @@ n1.iv.jags <-
 
 # Print treatment matrix for frequentist NMA
 #
-round(n1.iv$TE.random, 3)
+round(n1.iv$TE.random, 3)[trts, trts]
 
 # Print treatment matrix for Bayesian NMA
 #
@@ -116,11 +111,11 @@ round(TE.random, 3)
 # Print treatment matrix for frequentist NMA
 # (using tau from Bayesian NMA)
 #
-round(n1.iv.jags$TE.random, 3)
+round(n1.iv.jags$TE.random, 3)[trts, trts]
 
 # Print standard errors from frequentist NMA
 #
-round(n1.iv$seTE.random, 3)
+round(n1.iv$seTE.random, 3)[trts, trts]
 
 # Print standard errors from Bayesian NMA
 #
@@ -129,7 +124,7 @@ round(seTE.random, 3)
 # Print standard errors from frequentist NMA
 # (using tau from Bayesian NMA)
 #
-round(n1.iv.jags$seTE.random, 3)
+round(n1.iv.jags$seTE.random, 3)[trts, trts]
 
 # Print square root of between-study heterogeneity tau2
 #

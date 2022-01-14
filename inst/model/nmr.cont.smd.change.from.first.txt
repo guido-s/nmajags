@@ -1,5 +1,6 @@
-## Model file for network meta-regression with one covariate, normal
-## likelihood and standardized mean difference as summary measure
+## Model file for network meta-regression with one covariate (change
+## from reference), normal likelihood and standardized mean difference
+## as summary measure
 
 model {
   
@@ -16,7 +17,7 @@ model {
       ##
       delta.nmr[i, T[i, j]] <-
         delta[i, T[i, j]] +
-        beta[T[i, 1], T[i, j]] * Covar[i]
+        beta[T[i, 1], T[i, j]] * (Covar[i, T[i, j]] - Covar[i, T[i, 1]])
     }
     ##
     ## Model

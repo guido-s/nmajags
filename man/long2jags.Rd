@@ -14,15 +14,16 @@ long2jags(
   sd,
   data = NULL,
   reference.group = 1,
-  addvar,
-  func = "max",
-  quiet = FALSE
+  covar,
+  func = "max"
 )
 }
 \arguments{
-\item{studlab}{A vector with study labels (mandatory).}
+\item{studlab}{A vector with study labels or an object created with
+\code{\link[meta]{longarm}}.}
 
-\item{treat}{A vector with treatment labels (mandatory).}
+\item{treat}{A vector with treatment labels (mandatory if
+\code{studlab} is a vector).}
 
 \item{event}{Number of events.}
 
@@ -37,18 +38,14 @@ information.}
 
 \item{reference.group}{Reference treatment.}
 
-\item{addvar}{Additional covariable to use in network
-meta-regression.}
+\item{covar}{Covariable to use in network meta-regression.}
 
 \item{func}{A character string specifying function to summarize
-data for additional covariate. Either, "min", "max" or "mean",
-can be abbreviated.}
-
-\item{quiet}{A logical indicating whether information on changes in
-treatment labels should be printed.}
+data for additional covariate. Either, "min", "max", "mean", or
+""; can be abbreviated.}
 }
 \value{
-A list of class \code{jagsdata} readable in JAGS.
+A list of class \code{jagsdata}.
 }
 \description{
 This function transforms data from long arm-based format, i.e., two
@@ -60,10 +57,12 @@ This function transforms data from long arm-based format, i.e., two
 rows for a pairwise comparison, to a list format for Bayesian
 network meta-analysis using JAGS.
 
-The function can be used to transform data with a binary or
-continuous outcome. Arguments \code{studlab} and \code{treat} are
-mandatory to identify studies and treatments and, depending on the
-outcome, the following additional arguments are mandatory:
+At the moment, the function can be used to transform data with a
+binary or continuous outcome. The following arguments are mandatory
+if argument \code{studlab} is not an R object created with
+\code{\link[meta]{longarm}}. Arguments \code{studlab} and
+\code{treat} must be provided to identify studies and treatments
+and, depending on the outcome, the following additional arguments:
 
 \itemize{
 \item \code{event}, \code{n} (binary outcome);
@@ -86,37 +85,31 @@ n1.iv <- netmeta(p1)
 # Standard Bayesian random effects NMA model
 #
 library(R2jags)
-#
+
 # Transform long-arm based data into a list suitable for JAGS
-# analysis, with first treatment (here: Apixaban) as reference
-# treatment, i.e., t = 1
+# analysis, with placebo as reference treatment
 #
-dat.jags <- long2jags(id, trt,
+dat.jags <- long2jags(study, trt,
                       event = stroke, n = total,
                       data = Dogliotti2014, 
-                      reference = n1.iv$trts[1])
-dat.jags
-#
-# Run JAGS and create JAGS object (run 10.000 iterations and
-# 1.000 burn-in) monitor the nodes LOR and tau
+                      reference = "pl")
+
+# Run JAGS and create JAGS object
 #
 n1.jags <- netjags(dat.jags)
-#
-# Print results
-#
-print(n1.jags, digits = 2)
 
-# Extract lnOR from Bayesian NMA
+# Extract lnOR from BUGS output
 #
+trts <- attr(n1.jags, "trts")
 TE.random <- n1.jags$BUGSoutput$mean$LOR.full
-rownames(TE.random) <- rownames(n1.iv$TE.random)
-colnames(TE.random) <- colnames(n1.iv$TE.random)
+rownames(TE.random) <- trts
+colnames(TE.random) <- trts
 
-# Extract se(lnOR) from Bayesian NMA
+# Extract se(lnOR) from BUGS output
 #
 seTE.random <- n1.jags$BUGSoutput$sd$LOR.full
-rownames(seTE.random) <- rownames(n1.iv$seTE.random)
-colnames(seTE.random) <- colnames(n1.iv$seTE.random)
+rownames(seTE.random) <- trts
+colnames(seTE.random) <- trts
 
 # Conduct frequentist NMA with tau from Bayesian NMA
 #
@@ -126,7 +119,7 @@ n1.iv.jags <-
 
 # Print treatment matrix for frequentist NMA
 #
-round(n1.iv$TE.random, 3)
+round(n1.iv$TE.random, 3)[trts, trts]
 
 # Print treatment matrix for Bayesian NMA
 #
@@ -135,11 +128,11 @@ round(TE.random, 3)
 # Print treatment matrix for frequentist NMA
 # (using tau from Bayesian NMA)
 #
-round(n1.iv.jags$TE.random, 3)
+round(n1.iv.jags$TE.random, 3)[trts, trts]
 
 # Print standard errors from frequentist NMA
 #
-round(n1.iv$seTE.random, 3)
+round(n1.iv$seTE.random, 3)[trts, trts]
 
 # Print standard errors from Bayesian NMA
 #
@@ -148,7 +141,7 @@ round(seTE.random, 3)
 # Print standard errors from frequentist NMA
 # (using tau from Bayesian NMA)
 #
-round(n1.iv.jags$seTE.random, 3)
+round(n1.iv.jags$seTE.random, 3)[trts, trts]
 
 # Print square root of between-study heterogeneity tau2
 #
@@ -158,7 +151,8 @@ n1.iv$tau
 
 }
 \seealso{
-\code{\link{netjags}}, \code{\link[netmeta]{netmeta}}
+\code{\link{netjags}}, \code{\link[meta]{longarm}},
+  \code{\link[netmeta]{netmeta}}
 }
 \author{
 Georgia Salanti \email{georgia.salanti@ispm.unibe.ch},

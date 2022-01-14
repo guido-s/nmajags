@@ -3,37 +3,37 @@
 
 model {
   
-  for (i in 1:ns) {
+  for (i in 1:k) {
     ##
     w[i, 1] <- 0
-    delta[i, t[i, 1]] <- 0
+    delta[i, T[i, 1]] <- 0
     ##
     ## Normal likelihood
     ##
-    for (k in 1:na[i]) {
-      y[i, t[i, k]] ~ dnorm(phi[i, t[i, k]], prec[i, t[i, k]])
-      phi[i, t[i, k]] <- (delta[i, t[i, k]] + u[i]) * pooled.sd[i]
+    for (j in 1:n.k[i]) {
+      Y[i, T[i, j]] ~ dnorm(phi[i, T[i, j]], Pr[i, T[i, j]])
+      phi[i, T[i, j]] <- (delta[i, T[i, j]] + u[i]) * pooled.sd[i]
     }
     ##
     ## Model
     ##
-    for (k in 2:na[i]) {
+    for (j in 2:n.k[i]) {
       ##
       ## Distribution of random effects (SMD)
       ##
-      delta[i, t[i, k]] ~ dnorm(smd[i, t[i, k]], precd[i, t[i, k]])
+      delta[i, T[i, j]] ~ dnorm(smd[i, T[i, j]], prec.smd[i, T[i, j]])
       ##
       ## Accounting for correlation between effect sizes estimated in
       ## multi-arm trials
       ##
-      smd[i, t[i, k]] <- mean[i, k] + sw[i, k]
-      w[i, k] <- delta[i, t[i, k]] - mean[i, k]
-      sw[i, k] <- sum(w[i, 1:(k - 1)]) / (k - 1)
-      precd[i, t[i, k]] <- PREC * 2 * (k - 1) / k
+      smd[i, T[i, j]] <- mean[i, j] + sw[i, j]
+      w[i, j] <- delta[i, T[i, j]] - mean[i, j]
+      sw[i, j] <- sum(w[i, 1:(j - 1)]) / (j - 1)
+      prec.smd[i, T[i, j]] <- prec * 2 * (j - 1) / j
       ##
       ## Consistency equations
       ##
-      mean[i, k] <- d[t[i, k]] - d[t[i, 1]]
+      mean[i, j] <- d[T[i, j]] - d[T[i, 1]]
     }
   }
   
@@ -41,7 +41,7 @@ model {
   ##
   ## Prior distribution in baseline arm of study i
   ##
-  for (i in 1:ns) {
+  for (i in 1:k) {
     u[i] ~ dnorm(0, 0.0001)
   }
   ##
@@ -49,108 +49,90 @@ model {
   ##
   tau ~ dunif(0, 5)
   tau.sq <- pow(tau, 2)
-  PREC <- 1 / tau.sq
+  prec <- 1 / tau.sq
   ##
   ## Prior distribution for basic parameters
   ##
-  d[ref] <- 0
-  for (k in 1:(ref - 1)) {
-    d[k] ~ dnorm(0, 0.0001)
-  }
-  for (k in (ref + 1):nt) {
-    d[k] ~ dnorm(0, 0.0001)
+  d[1] <- 0
+  for (i in 2:n) {
+    d[i] ~ dnorm(0, 0.0001)
   }
   
   
   ##
   ## SMDs for comparisons
   ##
-  for (i in 1:(nt - 1)) {
-    for (j in (i + 1):nt) {
+  for (i in 1:(n - 1)) {
+    for (j in (i + 1):n) {
       SMD[j, i] <- d[j] - d[i]
     }
   }
   ##
   ## SMD matrix for all pairwise comparisons
   ##
-  for (i in 1:nt) {
-    for (j in 1:nt) {
+  for (i in 1:n) {
+    for (j in 1:n) {
       SMD.full[i, j] <- d[i] - d[j]
     }
-  }
-  ##
-  ## Comparisons with reference
-  ##
-  for (i in 1:nt) {
-    SMDref[i] <- d[i] - d[ref]
   }
   
   
   ##
   ## Predictions
   ##
-  for (i in 1:(nt - 1)) {
-    for (j in (i + 1):nt) {
-      predSMD[j, i] ~ dnorm(SMD[j, i], PREC)
+  for (i in 1:(n - 1)) {
+    for (j in (i + 1):n) {
+      predSMD[j, i] ~ dnorm(SMD[j, i], prec)
     }
   }
   ##
-  for (i in 1:nt) {
-    for (j in 1:nt) {
-      predSMD.full[i, j] ~ dnorm(SMD.full[i, j], PREC)
+  for (i in 1:n) {
+    for (j in 1:n) {
+      predSMD.full[i, j] ~ dnorm(SMD.full[i, j], prec)
     }
-  }
-  ##
-  for (i in 1:(ref - 1)) {
-    x[i] <- d[i] - d[ref]
-    predSMD.ref[i] ~ dnorm(x[i], PREC)
-  }
-  for (i in (ref + 1):nt) {
-    x[i] <- d[i] - d[ref]
-    predSMD.ref[i] ~ dnorm(x[i], PREC)
   }
   
   
   ##
   ## Treatment hierarchy
   ##
-  order[1:nt] <- rank(d[1:nt])
+  order[1:n] <- rank(d[1:n])
   ##
-  ## This is when the outcome is positive - omit 'nt + 1 -' when the
+  ## This is when the outcome is positive - omit 'n + 1 -' when the
   ## outcome is negative
   ##
-  for (i in 1:nt) {
+  for (i in 1:n) {
     most.effective[i] <- equals(order[i], 1)
-    for (j in 1:nt) {
+    for (j in 1:n) {
       effectiveness[i, j] <- equals(order[i], j)
     }
   }
   ##
-  for (i in 1:nt) {
-    for (j in 1:nt) {
+  for (i in 1:n) {
+    for (j in 1:n) {
       cumeffectiveness[i, j] <- sum(effectiveness[i, 1:j])
     }
   }
   ##
   ## SUCRAS
   ##
-  for (i in 1:nt) {
-    SUCRA[i] <- sum(cumeffectiveness[i, 1:(nt - 1)]) / (nt - 1)
+  for (i in 1:n) {
+    SUCRA[i] <- sum(cumeffectiveness[i, 1:(n - 1)]) / (n - 1)
   }
   
   
   ##
   ## Fit of the Model
   ##
-  for (i in 1:ns) {
-    for (j in 1:na[i]) {
+  for (i in 1:k) {
+    for (j in 1:n.k[i]) {
       Darm[i, j] <-
-        (y[i, t[i, j]] - phi[i, t[i, j]]) *
-        (y[i, t[i, j]] - phi[i, t[i, j]]) *
-        prec[i, t[i, j]]
+        (Y[i, T[i, j]] - phi[i, T[i, j]]) *
+        (Y[i, T[i, j]] - phi[i, T[i, j]]) *
+        Pr[i, T[i, j]]
     }
     ##
-    D[i] <- sum(Darm[i, 1:na[i]])
+    D[i] <- sum(Darm[i, 1:n.k[i]])
   }
   D.bar <- sum(D[])
 }

@@ -3,43 +3,43 @@
 
 model {
   
-  for (i in 1:ns) {
+  for (i in 1:k) {
     ##
     w[i, 1] <- 0
-    theta[i, t[i, 1]] <- 0
+    theta[i, T[i, 1]] <- 0
     ##
-    ## Binomial likelihood of number of events for each arm k of study
-    ## i
+    ## Binomial likelihood of number of events
+    ## for each arm j of study i
     ##
-    for (k in 1:na[i]) {
-      r[i, t[i, k]] ~ dbin(p[i, t[i, k]], n[i, t[i, k]])
+    for (j in 1:n.k[i]) {
+      E[i, T[i, j]] ~ dbin(p[i, T[i, j]], N[i, T[i, j]])
     }
     ##
-    ## Parameterization of the 'true' effect of each comparison of arm
-    ## k vs. baseline arm (t = 1) of study i
+    ## Parameterization of the 'true' effect of each comparison of
+    ## arm j vs. baseline arm (t = 1) of study i
     ##
-    logit(p[i, t[i, 1]]) <- u[i]
+    logit(p[i, T[i, 1]]) <- u[i]
     ##
     ## Model
     ##
-    for (k in 2:na[i]) {
-      logit(p[i, t[i, k]]) <- theta[i, t[i, k]] + u[i]
+    for (j in 2:n.k[i]) {
+      logit(p[i, T[i, j]]) <- theta[i, T[i, j]] + u[i]
       ##
       ## Distribution of random effects
       ##
-      theta[i, t[i, k]] ~ dnorm(lnOR[i, t[i, k]], precd[i, t[i, k]])
+      theta[i, T[i, j]] ~ dnorm(lnOR[i, T[i, j]], prec.lnOR[i, T[i, j]])
       ##
       ## Accounting for correlation between effect sizes estimated in
       ## multi-arm trials
       ##
-      lnOR[i, t[i, k]] <- mean[i, k] + sw[i, k]
-      w[i, k] <- theta[i, t[i, k]] - mean[i, k]
-      sw[i, k] <- sum(w[i, 1:(k - 1)]) / (k - 1)
-      precd[i, t[i, k]] <- prec * 2 * (k - 1) / k
+      lnOR[i, T[i, j]] <- mean[i, j] + sw[i, j]
+      w[i, j] <- theta[i, T[i, j]] - mean[i, j]
+      sw[i, j] <- sum(w[i, 1:(j - 1)]) / (j - 1)
+      prec.lnOR[i, T[i, j]] <- prec * 2 * (j - 1) / j
       ##
       ## Consistency equations
       ##
-      mean[i, k] <- d[t[i, k]] - d[t[i, 1]]
+      mean[i, j] <- d[T[i, j]] - d[T[i, 1]]
     }
   }
   
@@ -47,7 +47,7 @@ model {
   ##
   ## Prior distribution for log-odds in baseline arm of study i
   ##
-  for (i in 1:ns) {
+  for (i in 1:k) {
     u[i] ~ dnorm(0, 0.01)
   }
   ##
@@ -59,20 +59,17 @@ model {
   ##
   ## Prior distribution for basic parameters
   ##
-  d[ref] <- 0
-  for (k in 1:(ref - 1)) {
-    d[k] ~ dnorm(0, 0.01)
-  }
-  for (k in (ref + 1):nt) {
-    d[k] ~ dnorm(0, 0.01)
+  d[1] <- 0
+  for (i in 2:n) {
+    d[i] ~ dnorm(0, 0.01)
   }
   
   
   ##
   ## OR for each comparison 
   ##
-  for (i in 1:(nt - 1)) {
-    for (j in (i + 1):nt) {
+  for (i in 1:(n - 1)) {
+    for (j in (i + 1):n) {
       OR[j, i] <- exp(d[j] - d[i])
       LOR[j, i] <- d[j] - d[i]
     }
@@ -80,18 +77,9 @@ model {
   ##
   ## Full matrix with pairwise comparisons
   ##
-  for (i in 1:nt) {
-    for (j in 1:nt) {
+  for (i in 1:n) {
+    for (j in 1:n) {
       LOR.full[i, j] <- d[i] - d[j]
     }
-  }
-  ##
-  ## Comparisons with reference
-  ##
-  for (i in 1:(ref - 1)) {
-    ORref[i] <- exp(d[i] - d[ref])
-  }
-  for (i in (ref + 1):nt) {
-    ORref[i] <- exp(d[i] - d[ref])
   }
 }
