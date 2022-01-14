@@ -1,4 +1,7 @@
-model.nma.bin.or <- function(ns, na, nt, u, tau, ref, pow) {
+## Model file for network meta-analysis with binomial likelihood and
+## odds ratio as summary measure
+
+model {
   
   for (i in 1:ns) {
     ##
@@ -50,7 +53,7 @@ model.nma.bin.or <- function(ns, na, nt, u, tau, ref, pow) {
   ##
   ## Prior distribution for heterogeneity
   ##
-  tau ~ dnorm(0, 1) %_% T(0, )                                      
+  tau ~ dnorm(0, 1) T(0, )
   tau.sq <- pow(tau, 2)
   prec <- 1 / tau.sq
   ##
@@ -71,14 +74,15 @@ model.nma.bin.or <- function(ns, na, nt, u, tau, ref, pow) {
   for (i in 1:(nt - 1)) {
     for (j in (i + 1):nt) {
       OR[j, i] <- exp(d[j] - d[i])
-      LOR[j, i] <- d[j] - d[i]}
+      LOR[j, i] <- d[j] - d[i]
+    }
   }
   ##
   ## Full matrix with pairwise comparisons
   ##
   for (i in 1:nt) {
     for (j in 1:nt) {
-      lnOR.full[i, j] <- d[i] - d[j]
+      LOR.full[i, j] <- d[i] - d[j]
     }
   }
   ##

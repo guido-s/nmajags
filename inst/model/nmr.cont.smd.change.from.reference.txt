@@ -1,7 +1,8 @@
-model.nmr.cont.smd.Sponsor <- function(ns, na, nt, u, tau, ref,
-                                       pow, tauBeta,
-                                       pooled.sd, equals, y, prec,
-                                       Sponsor) {
+## Model file for network meta-regression with one covariate (change
+## from reference), normal likelihood and standardized mean difference
+## as summary measure
+
+model {
   
   for (i in 1:ns) {
     ##
@@ -17,7 +18,7 @@ model.nmr.cont.smd.Sponsor <- function(ns, na, nt, u, tau, ref,
       ##
       delta.nmr[i, t[i, k]] <-
         delta[i, t[i, k]] +
-        beta[i] * (Sponsor[i, t[i, 1]] - Sponsor[i, t[i, k]])
+        beta[i] * (addvar[i, t[i, 1]] - addvar[i, t[i, k]])
     }
     ##
     ## Model

@@ -86,13 +86,13 @@
 #' 
 #' # Extract lnOR from Bayesian NMA
 #' #
-#' TE.random <- n1.jags$BUGSoutput$mean$lnOR.full
+#' TE.random <- n1.jags$BUGSoutput$mean$LOR.full
 #' rownames(TE.random) <- rownames(n1.iv$TE.random)
 #' colnames(TE.random) <- colnames(n1.iv$TE.random)
 #' 
-#' # Extract selnOR from Bayesian NMA
+#' # Extract se(lnOR) from Bayesian NMA
 #' #
-#' seTE.random <- n1.jags$BUGSoutput$sd$lnOR.full
+#' seTE.random <- n1.jags$BUGSoutput$sd$LOR.full
 #' rownames(seTE.random) <- rownames(n1.iv$seTE.random)
 #' colnames(seTE.random) <- colnames(n1.iv$seTE.random)
 #' 

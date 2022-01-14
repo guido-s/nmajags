@@ -72,13 +72,13 @@
 #' 
 #' # Extract lnOR from Bayesian NMA
 #' #
-#' TE.random <- n1.jags$BUGSoutput$mean$lnOR.full
+#' TE.random <- n1.jags$BUGSoutput$mean$LOR.full
 #' rownames(TE.random) <- rownames(n1.iv$TE.random)
 #' colnames(TE.random) <- colnames(n1.iv$TE.random)
 #' 
-#' # Extract selnOR from Bayesian NMA
+#' # Extract se(lnOR) from Bayesian NMA
 #' #
-#' seTE.random <- n1.jags$BUGSoutput$sd$lnOR.full
+#' seTE.random <- n1.jags$BUGSoutput$sd$LOR.full
 #' rownames(seTE.random) <- rownames(n1.iv$seTE.random)
 #' colnames(seTE.random) <- colnames(n1.iv$seTE.random)
 #' 
@@ -142,15 +142,21 @@ netjags <- function(x, inits = NULL,
   ##
   if (is.null(model.file))
     if (type == "binary")
-      model.file <- model.nma.bin.or
+      model.file <-
+        system.file("model", "nma.bin.or.txt", package = "nmajags")
     else if (type == "continuous")
-      model.file <- model.nma.cont.smd
+      model.file <-
+        system.file("model", "nma.cont.smd.txt", package = "nmajags")
+    else
+      stop("Argument 'model.file' must be provided.")
   ##
   if (is.null(parameters.to.save))
     if (type == "binary")
-      parameters.to.save <- c("lnOR.full", "tau")
+      parameters.to.save <- c("LOR.full", "tau")
     else if (type == "continuous")
       parameters.to.save <- c("SMD.full", "tau")
+    else
+      stop("Argument 'parameters.to.save' must be provided.")
   ##
   x$data <- NULL
   ##
